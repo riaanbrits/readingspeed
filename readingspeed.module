@@ -115,11 +115,6 @@ function readingspeed_testpage() {
 		'#markup'         => t('<p>Click on the <strong>Start</strong> button before reading the text below. When done, click on <strong>Stop</strong> to calculate your speed.</p>'),
 	);
 	
-	/*$form['start_link'] = array (
-		'#prefix'       => '<div id="start-link">',
-		'#suffix'       => '</div>',
-		'#markup'       => theme('image', array('path' =>drupal_get_path('module','readingspeed') . '/images/start.png')),
-	);*/
 	$form['test_start'] = array ( 
 		'#type' => 'button', 
 		'#value' => 'Start',
@@ -131,12 +126,6 @@ function readingspeed_testpage() {
 		'#suffix'       => '</div>',
 		'#markup'       => $reader_content ,
 	);
-	
-	/*$form['stop_link']  = array (
-		'#prefix'       => '<div id="stop-link">',
-		'#suffix'       => '</div>',
-		'#markup'       => theme('image', array('path' =>drupal_get_path('module','readingspeed') . '/images/stop.png')),
-	);*/
 	
 	$form['test_stop']  = array ( 
 		'#type' => 'button', 
