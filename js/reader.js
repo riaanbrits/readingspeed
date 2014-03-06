@@ -30,7 +30,7 @@ var timer = {
 					var ret = '';
 					if (l > 60) {
 			var m = Math.floor (l/60.0);
-						var s = l%60;//remainder
+						var s = Math.floor(l%60);//remainder
 			ret = m + ' minute(s) and ' + s + ' seconds ';
 					} else {
 					   ret = l + ' seconds';
