@@ -1,0 +1,167 @@
+<?php
+
+/*
+ * Quick module to allow users to track reading speed.
+ * 2014-02-26 Riaan Brits
+ */
+function readingspeed_help($path, $arg) {
+	switch($arg){
+		case "admin/help#readingspeed":
+			return "<p>" . t('Reading speed tester') . "</p>";
+			break;
+	}
+}
+
+function readingspeed_permission(){
+	return array(
+		'access readingspeed admin' => array (
+			'title' => t('Administer readingspeed module'),
+		),
+		'access readingspeed test'  => array (
+			'title' => t('View reading speed page'),
+		)
+	);
+}
+
+function readingspeed_menu() {
+	$items = array ();
+
+	// Administration page
+	$items['admin/config/bmgi/reading-speed'] = array (
+			'title'            => t('Reading Speed Test Administration'),
+			'description'      => t('Configurate reading speed module settings'),
+			'access arguments' => array('access readingspeed admin'),
+			'page callback'    => 'drupal_get_form',
+			'page arguments'   => array('readingspeed_admin_form'),
+			'type'             => MENU_NORMAL_ITEM,
+		);
+	
+	// reading speed test 
+	$items['reading-speed'] = array ( 
+		'title'                => t('Reading Speed Test'),
+		'page callback'        => 'drupal_get_form',
+		'page arguments'       => array ('readingspeed_testpage'),
+		'access arguments'     => array('access readingspeed test') ,
+		'type'                 => MENU_CALLBACK,
+		);
+	
+	return $items;
+}
+
+/* Get a displayable list of content types for the admin page*/
+function readingspeed_get_list_of_content_types (){
+	$list_ctypes = node_type_get_types();
+	//echo "<pre>" . print_r ( $list_ctypes, true ) . "</pre>";
+	$options_list = array();
+	foreach($list_ctypes as $key => $value) {
+		$options_list[$key] = sprintf("%s (%s)", $value->name, $key);
+	}
+	return $options_list;
+}
+
+function readingspeed_admin_form($form, &$form_state) {
+	$options_list = readingspeed_get_list_of_content_types();
+	$form['readingspeed_contentype'] = array (
+		'#type'    => 'select',
+		'#title'   => t('Content Type to Use'),
+		'#options' => $options_list,
+		'#default_value' => variable_get('readingspeed_contentype', 'page'),
+		'#description' => t('Select which content type to source content from on the reading speed test page'),
+	);
+	
+	return system_settings_form($form);
+}
+
+/* Get a list of nodes a user can choose from to test their reading speed on*/
+function readingspeed_get_list_of_test_nodes () {
+	$result = array ();
+    $use_type = variable_get ( 'readingspeed_contentype', 'page' );
+	$nodes    = node_load_multiple (array(), array ('type' => $use_type ) );
+	foreach ( $nodes as $key => $value ) {
+		$result[ $value->nid ] = $value->title;//$value->body['und'][0]['value'];
+	}
+	return $result ;
+}
+
+/* Retrieve formatted body text for the node specified by $nid */
+function readingspeed_load_node_body_text ($nid) {
+     $node = node_load($nid);
+	 $language = $node->language;
+	 $t = check_markup($node->body[$language][0]['value'], $node->body[$language][0]['format'], $language);
+	 return $t;
+}
+
+function readingspeed_testpage() {
+	$test_nodes         = readingspeed_get_list_of_test_nodes();
+	$test_default_value = reset(array_keys($test_nodes));
+	$reader_content     = readingspeed_load_node_body_text($test_default_value);
+
+	$form = array();
+	//$form['test_markup'] = array ('#markup' => '<pre>' . print_r($test_nodes,true) . "</pre>",);
+	
+	$form['test_node'] = array (
+		'#type'          => 'select',
+		'#title'         => t('Text to test on'),
+		'#options'       => $test_nodes,
+		'#default_value' => $test_default_value,
+		'#ajax'          => array (
+			'event'      => 'change',
+			'callback'   => 'readingspeed_ajax_reading_content',
+			'wrapper'    => 'reader-content',
+		),
+	);
+	
+	$form['intro_text'] = array (
+		'#markup'         => t('<p>Click on the <strong>Start</strong> button before reading the text below. When done, click on <strong>Stop</strong> to calculate your speed.</p>'),
+	);
+	
+	/*$form['start_link'] = array (
+		'#prefix'       => '<div id="start-link">',
+		'#suffix'       => '</div>',
+		'#markup'       => theme('image', array('path' =>drupal_get_path('module','readingspeed') . '/images/start.png')),
+	);*/
+	$form['test_start'] = array ( 
+		'#type' => 'button', 
+		'#value' => 'Start',
+		'#attributes' => array('onclick' => 'return (false);'),
+	);
+
+	$form['reader_content'] = array (
+		'#prefix'       => '<div id="reader-content">',
+		'#suffix'       => '</div>',
+		'#markup'       => $reader_content ,
+	);
+	
+	/*$form['stop_link']  = array (
+		'#prefix'       => '<div id="stop-link">',
+		'#suffix'       => '</div>',
+		'#markup'       => theme('image', array('path' =>drupal_get_path('module','readingspeed') . '/images/stop.png')),
+	);*/
+	
+	$form['test_stop']  = array ( 
+		'#type' => 'button', 
+		'#value' => 'Stop',
+		'#attributes' => array('onclick' => 'return (false);'),
+		'#disabled' => TRUE,
+		);
+		
+		
+	$form['user-output'] = array (
+		'#prefix'  => '<div id="user-output">' ,
+		'#suffix'  => '</div>',
+	);
+	// plug in reader script.
+	$form['#attached']['js'] = array (
+		drupal_get_path('module', 'readingspeed') . '/js/reader.js',
+	);
+	return $form;
+}
+
+// load updated content for the reader content
+function readingspeed_ajax_reading_content($form, &$form_state) {
+	$use_nid = $form_state['values'];
+	$reader_content     = readingspeed_load_node_body_text($use_nid);
+	
+	$form['reader_content']['#markup'] = $reader_content;
+	return $form['reader_content'];
+}

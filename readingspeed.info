@@ -1,0 +1,6 @@
+name = Reading Speed Tester
+description = Module to interactively measure reading speed
+core = 7.x
+package = Reading Speed
+configure = admin/config/bmgi/reading-speed
+version = 1.0
